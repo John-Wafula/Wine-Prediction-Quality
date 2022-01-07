@@ -1,0 +1,238 @@
+---
+title: "Wine Prediction Based on Chemical Properties"
+author: "Assignment"
+date: "11/3/2021"
+output: html_document
+---
+We are going to use the wine quality dataset to predict the quality of wine based on the chemical properties provided.
+
+We will utilise two machine learning models for prediction.
+
+1.Logistic Regression
+
+2.Linear Regression
+
+We will use this two models to predict the quality of wine using input varibles.The data will be split unto the test set and training set ,then they will be used to create the models.
+
+## Requirements For a good model
+
+1.The Model should be scaleble(should not be affected by the size of the data)
+
+2.The model should be compatible with different types of data
+
+3.Whatever should be nature of the variables the model should be able to handle it.
+4.A good model should get rid of noise and outliers.
+5.Interperolable
+
+
+```{r}
+library(readr)
+winequality <- read_csv("C:/Users/Admin/Downloads/winequality.csv")
+head(winequality)
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+library(RColorBrewer)
+library(randomForest)
+library(party)
+theme_set(theme_classic())
+```
+## Exploratory Data analysis
+
+We will conduct some exploratory data analysis to understand our data better
+```{r}
+glimpse(winequality)
+```
+The data has 13 columns and 6497 columns
+```{r}
+names(winequality)[1]<-"fixed.acidity"
+names(winequality)[2]<-"Volatile.acidity"
+names(winequality)[3]<-"Citric.acidity"
+names(winequality)[4]<-"residual.sugar"
+names(winequality)[6]<-"free.sulphur.dioxide"
+names(winequality)[7]<-"total.sulphur.dioxide"
+```
+
+```{r}
+#Some more details related to data.
+#How data looks
+print("---Data preview---")
+head(winequality)
+
+#Number of rows to identify how big is the data we are dealing with
+print("---Number of rows---")
+nrow(winequality)
+
+print("---Column names---")
+#Names of all columns
+names(winequality)
+```
+```{r}
+#Let us check if we have any NA values in our data.
+#We should remove and NA or incomplete data.
+#If FALSE means no NA data in our data.frame
+#If TRUE we will check each column and for NA data.
+
+print("----Checking for NA Data---")
+any(is.na.data.frame(winequality))
+```
+```{r}
+#Checking values in Columns "Color", "Quality" and "Good".
+#Might be helpful in subsequest iterations.
+
+print("---Values in color column")
+unique(winequality$type)
+
+
+
+print("---Values in quality column")
+unique(winequality$quality)
+```
+## Data Visualization
+
+```{r}
+print(" Number of wines for a partcular rating of wine:")
+table(winequality$quality)
+theme_set(theme_minimal())
+ggplot(winequality,aes(quality)) + geom_histogram(stat="count") +
+   xlab("Quality of white wines") + ylab("Number of white wines")
+```
+```{r}
+#Loading Libraries
+# Call libraries and read data
+library(dplyr)          # For data manipulation ,filtering etc
+library(magrittr)       # For pipes
+library(caret)          # For dummy variables, nearZeroVar(), findCorrleation()
+library(ggplot2)        # For plotting
+library(ggthemes)       # For a variety of plot-themes
+library(gridExtra)      # Arranging ggplots in a grid
+library(lattice)
+library(vegan)
+library(NbClust)
+library(cluster)        # For silhoutte()
+library(factoextra)     # get_clust_tendency() assesses hopkins stat
+library(clustertend)    # Another package for hopkins() function
+library(data.table)
+library(GGally)
+library(ggcorrplot)
+library(mclust)
+library(fpc)
+
+```
+
+```{r}
+for(i in 1:11){
+    print(paste("---Plot for---", colnames(winequality)[i]))
+
+#Overall distribution
+  print(ggplot(winequality, aes_string("quality", colnames(winequality)[i]))+
+        geom_count(col="tomato3", show.legend=F)+
+        theme_solarized())
+
+#Color wise scatter plot 
+  print(ggplot(winequality, aes_string("quality", colnames(winequality)[i]))+
+        geom_jitter(aes(col=as.factor(color))))
+}
+```
+
+
+## Classiffying the quality of wines
+
+The column from quality as seen is normally distributed.We will try to make predictions on the quality of wine using our variables.From the quality variable we can say that wines rated 9 and 8 are very few and can be regarded as the best of all.We will identify the best properties that contribute to the quality of wine.
+
+
+```{r}
+winequality$rating   <- ifelse (as.integer(winequality$quality) > 7, 1, 0)
+glimpse(winequality)
+table(winequality$rating)
+```
+
+## Visualizing the attributes
+
+We will try to visualize first the other attributes to see if there is a pattern before making the predictions
+
+```{r}
+library(corrplot)
+N<-winequality[c(1,2,3,4,5,6,7,8,9,10,11,12,13,15)]
+M <- cor(N)
+corrplot(M, method = "number")
+```
+
+##Linear regression Model
+
+We will now create a linear regression model that will indicate which of the variables are significant,we will continue on with model improvement by removing the insignificant variables and observing the improvement on our R squared.
+
+```{r}
+# Splitting the data into Training and Testing sets
+library(caTools)
+set.seed(144)
+spl = sample.split(winequality$quality, 0.7)
+train = subset(winequality, spl == TRUE)
+test=subset(winequality,spl==FALSE)
+```
+
+```{r}
+model1 <- lm(quality ~ .-rating, data = train)
+summary(model1)
+```
+Our adjusted r squared is 0.6408,free sulphur dioxide is not a significant predictor.So we will remove it from our model.
+
+```{r}
+model2 <- lm(quality ~ .-free.sulphur.dioxide, data = train)
+summary(model2)
+```
+## Prediction
+
+We will use this model to predict now
+
+```{r}
+predictTest <- predict(model2, newdata = test)
+summary(predictTest)
+```
+
+As seen our linear regression model works fine as the highest predicted quality is 8.3.We will also expreiment using logistic regression.
+
+## Logistic Regression MOdel
+```{r}
+# Splitting the data into Training and Testing sets
+library(caTools)
+set.seed(144)
+spl = sample.split(winequality$rating, 0.7)
+train1 = subset(winequality, spl == TRUE)
+test1=subset(winequality,spl==FALSE)
+```
+
+```{r}
+# Creating the logistics regression model
+mod = glm(rating ~.-quality ,data=train1,family = "binomial")
+summary(mod)
+```
+
+Our Most Significant Variables for prediction are
+
+-residual.sugar
+
+-PH
+
+-Free Sulphur Dioxide
+
+## Prediction
+
+We will now use the model to predict the quality of wine using the testing set
+
+```{r}
+prediction = predict(mod, newdata=test1, type="response")
+table(test$rating, prediction > 0.5)
+```
+
+Our model predicts that 59 of the wines in the datset are rated highly,that is between 8 and 9 in the test set.Let us now check the maximum value
+
+```{r}
+print("The maximum value of prediction over testing set is ")
+round(max(prediction),3)
+```
+
+Since the maximum value is less that 0.5,the model we creaed will always predict that the quality of wine will be less than 8 from the ratings used by experts,.
